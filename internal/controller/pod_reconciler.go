@@ -1,0 +1,97 @@
+/*
+Copyright 2026 containeroo.ch
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package controller
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/containeroo/kube-ephemeral-container-exporter/internal/metrics"
+	"github.com/containeroo/kube-ephemeral-container-exporter/internal/predicates"
+	"github.com/containeroo/kube-ephemeral-container-exporter/internal/utils"
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+// PodReconciler reconciles Pods and exposes metrics about attached ephemeral containers.
+type PodReconciler struct {
+	KubeClient client.Client
+	Logger     logr.Logger
+	Recorder   record.EventRecorder
+	Metrics    *metrics.Registry
+}
+
+// Reconcile handles Pod changes and updates ephemeral-container metrics.
+func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	pod := &corev1.Pod{}
+	if err := r.KubeClient.Get(ctx, req.NamespacedName, pod); err != nil {
+		if apierrors.IsNotFound(err) {
+			r.Logger.Info("pod not found, nothing to reconcile", "namespace", req.Namespace, "name", req.Name)
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	ownerKind, ownerName := utils.ResolvePodOwner(pod)
+
+	// Update events can still reach this reconciler when a Pod previously had
+	// ephemeral containers but no longer has any. In that case, we must remove
+	// the old metric series and return without recreating zero-value metrics.
+	if !utils.PodHasEphemeralContainers(pod) {
+		r.Metrics.DeletePodEphemeralContainers(pod, ownerKind, ownerName)
+
+		r.Logger.Info(
+			"pod has no ephemeral containers, removed metrics if present",
+			"namespace", pod.Namespace,
+			"name", pod.Name,
+			"ownerKind", ownerKind,
+			"ownerName", ownerName,
+		)
+		return ctrl.Result{}, nil
+	}
+
+	r.Metrics.UpdatePodEphemeralContainers(pod, ownerKind, ownerName)
+
+	r.Recorder.Event(
+		pod,
+		corev1.EventTypeNormal,
+		"UpdatedEphemeralContainerMetrics",
+		fmt.Sprintf("updated %d ephemeral containers", len(pod.Spec.EphemeralContainers)),
+	)
+	r.Logger.Info(
+		"updated pod ephemeral-container metrics",
+		"namespace", pod.Namespace,
+		"name", pod.Name,
+		"ownerKind", ownerKind,
+		"ownerName", ownerName,
+		"ephemeralContainers", len(pod.Spec.EphemeralContainers),
+	)
+
+	return ctrl.Result{}, nil
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&corev1.Pod{}).
+		WithEventFilter(predicates.EphemeralContainerChanges(r.Metrics)).
+		Complete(r)
+}

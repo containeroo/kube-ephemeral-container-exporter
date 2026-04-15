@@ -1,0 +1,27 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kube-ephemeral-container-exporter-alerts
+  namespace: kube-ephemeral-container-exporter-system
+spec:
+  groups:
+    - name: kube-ephemeral-container-exporter-alerts
+      rules:
+        - alert: EphemeralContainersExporterMetricsMissing
+          expr: |
+            absent(kube_pod_ephemeral_container_present)
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: kube-ephemeral-container-exporter metrics missing
+            description: kube-ephemeral-container-exporter metrics are not being scraped for {{$labels.job}}.
+        - alert: EphemeralContainersDetected
+          expr: max_over_time(kube_pod_ephemeral_container_present[5m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Ephemeral containers detected
+            description: One or more Pods reported attached ephemeral containers in the last 5 minutes.

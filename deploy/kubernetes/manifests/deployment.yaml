@@ -1,0 +1,63 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-ephemeral-container-exporter
+  namespace: kube-ephemeral-container-exporter-system
+  labels:
+    app.kubernetes.io/name: kube-ephemeral-container-exporter
+    app.kubernetes.io/component: controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kube-ephemeral-container-exporter
+      app.kubernetes.io/component: controller
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: kube-ephemeral-container-exporter
+      labels:
+        app.kubernetes.io/name: kube-ephemeral-container-exporter
+        app.kubernetes.io/component: controller
+    spec:
+      serviceAccountName: kube-ephemeral-container-exporter
+      containers:
+        - name: kube-ephemeral-container-exporter
+          image: ghcr.io/containeroo/kube-ephemeral-container-exporter:latest
+          args:
+            - --leader-elect
+          ports:
+            - name: metrics
+              containerPort: 8443
+              protocol: TCP
+            - name: probes
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: probes
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: probes
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 500m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      securityContext:
+        runAsNonRoot: true
+      terminationGracePeriodSeconds: 10
