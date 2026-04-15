@@ -23,6 +23,7 @@ import (
 	"github.com/containeroo/kube-ephemeral-container-exporter/internal/metrics"
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -67,7 +68,7 @@ func TestPodReconcilerReconcile(t *testing.T) {
 		assert.Equal(t, ctrl.Result{}, result)
 	})
 
-	t.Run("successful reconcile", func(t *testing.T) {
+	t.Run("successful reconcile updates attached and running metrics", func(t *testing.T) {
 		t.Parallel()
 
 		controller := true
@@ -113,14 +114,13 @@ func TestPodReconcilerReconcile(t *testing.T) {
 			WithObjects(pod).
 			Build()
 
-		recorder := record.NewFakeRecorder(10)
 		promReg := prometheus.NewRegistry()
 		metricsReg := metrics.NewRegistry(promReg)
 
 		reconciler := &PodReconciler{
 			KubeClient: kubeClient,
 			Logger:     logr.Discard(),
-			Recorder:   recorder,
+			Recorder:   record.NewFakeRecorder(10),
 			Metrics:    metricsReg,
 		}
 
@@ -134,9 +134,25 @@ func TestPodReconcilerReconcile(t *testing.T) {
 		result, err := reconciler.Reconcile(context.Background(), req)
 		require.NoError(t, err)
 		assert.Equal(t, ctrl.Result{}, result)
+
+		require.Equal(t, float64(1), testutil.ToFloat64(
+			metricsReg.PodPresent().WithLabelValues("test-namespace", "test-pod", "node-a", "ReplicaSet", "test-rs"),
+		))
+		require.Equal(t, float64(1), testutil.ToFloat64(
+			metricsReg.PodCount().WithLabelValues("test-namespace", "test-pod", "node-a", "ReplicaSet", "test-rs"),
+		))
+		require.Equal(t, float64(1), testutil.ToFloat64(
+			metricsReg.PodRunningPresent().WithLabelValues("test-namespace", "test-pod", "node-a", "ReplicaSet", "test-rs"),
+		))
+		require.Equal(t, float64(1), testutil.ToFloat64(
+			metricsReg.PodRunningCount().WithLabelValues("test-namespace", "test-pod", "node-a", "ReplicaSet", "test-rs"),
+		))
+		require.Equal(t, float64(1), testutil.ToFloat64(
+			metricsReg.ContainerRunning().WithLabelValues("test-namespace", "test-pod", "debugger"),
+		))
 	})
 
-	t.Run("pod can still be fetched after reconcile", func(t *testing.T) {
+	t.Run("reconcile plain pod writes zero attached and running metrics", func(t *testing.T) {
 		t.Parallel()
 
 		pod := &corev1.Pod{
@@ -183,6 +199,19 @@ func TestPodReconcilerReconcile(t *testing.T) {
 		}, got)
 		require.NoError(t, err)
 		assert.Equal(t, "plain-pod", got.Name)
+
+		require.Equal(t, float64(0), testutil.ToFloat64(
+			metricsReg.PodPresent().WithLabelValues("test-namespace", "plain-pod", "node-a", "", ""),
+		))
+		require.Equal(t, float64(0), testutil.ToFloat64(
+			metricsReg.PodCount().WithLabelValues("test-namespace", "plain-pod", "node-a", "", ""),
+		))
+		require.Equal(t, float64(0), testutil.ToFloat64(
+			metricsReg.PodRunningPresent().WithLabelValues("test-namespace", "plain-pod", "node-a", "", ""),
+		))
+		require.Equal(t, float64(0), testutil.ToFloat64(
+			metricsReg.PodRunningCount().WithLabelValues("test-namespace", "plain-pod", "node-a", "", ""),
+		))
 	})
 }
 

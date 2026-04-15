@@ -70,7 +70,12 @@ var _ = Describe("Namespaced mode", Serial, Ordered, func() {
 
 		By("waiting for metrics to appear")
 		testutils.MetricsContain(
-			fmt.Sprintf(`namespace=%q,pod=%q`, pod.Namespace, pod.Name),
+			fmt.Sprintf(`namespace=%q`, pod.Namespace),
+			90*time.Second,
+			2*time.Second,
+		)
+		testutils.MetricsContain(
+			fmt.Sprintf(`pod=%q`, pod.Name),
 			90*time.Second,
 			2*time.Second,
 		)
@@ -90,7 +95,7 @@ var _ = Describe("Namespaced mode", Serial, Ordered, func() {
 
 		By("ensuring no metrics are exported for the pod outside the watched namespace")
 		testutils.MetricsConsistentlyNotContain(
-			fmt.Sprintf(`namespace=%q,pod=%q`, pod.Namespace, pod.Name),
+			fmt.Sprintf(`pod=%q`, pod.Name),
 			12*time.Second,
 			1*time.Second,
 		)

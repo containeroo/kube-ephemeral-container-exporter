@@ -78,13 +78,12 @@ func TestRegistryMetrics(t *testing.T) {
 					Name:         "shell",
 					RestartCount: 1,
 					State: corev1.ContainerState{
-						Waiting: &corev1.ContainerStateWaiting{
-							Reason: "CrashLoopBackOff",
-						},
+						Waiting: &corev1.ContainerStateWaiting{},
 					},
 				},
 				{
-					Name: "terminated",
+					Name:         "terminated",
+					RestartCount: 0,
 					State: corev1.ContainerState{
 						Terminated: &corev1.ContainerStateTerminated{
 							Reason: "Completed",
@@ -96,8 +95,6 @@ func TestRegistryMetrics(t *testing.T) {
 	}
 
 	t.Run("UpdatePodEphemeralContainers", func(t *testing.T) {
-		t.Parallel()
-
 		promReg := prometheus.NewRegistry()
 		reg := NewRegistry(promReg)
 
@@ -108,6 +105,13 @@ func TestRegistryMetrics(t *testing.T) {
 		))
 		require.Equal(t, float64(2), testutil.ToFloat64(
 			reg.podCount.WithLabelValues("default", "demo", "node-a", "ReplicaSet", "demo-rs"),
+		))
+
+		require.Equal(t, float64(1), testutil.ToFloat64(
+			reg.podRunningPresent.WithLabelValues("default", "demo", "node-a", "ReplicaSet", "demo-rs"),
+		))
+		require.Equal(t, float64(1), testutil.ToFloat64(
+			reg.podRunningCount.WithLabelValues("default", "demo", "node-a", "ReplicaSet", "demo-rs"),
 		))
 
 		require.Equal(t, float64(1), testutil.ToFloat64(
@@ -125,20 +129,18 @@ func TestRegistryMetrics(t *testing.T) {
 		))
 
 		require.Equal(t, float64(1), testutil.ToFloat64(
-			reg.containerWaiting.WithLabelValues("default", "demo", "shell", "CrashLoopBackOff"),
+			reg.containerWaiting.WithLabelValues("default", "demo", "shell"),
 		))
 		require.Equal(t, float64(1), testutil.ToFloat64(
 			reg.containerRestartCount.WithLabelValues("default", "demo", "shell"),
 		))
 
 		require.Equal(t, float64(1), testutil.ToFloat64(
-			reg.containerTerminated.WithLabelValues("default", "demo", "terminated", "Completed"),
+			reg.containerTerminated.WithLabelValues("default", "demo", "terminated"),
 		))
 	})
 
 	t.Run("DeletePodEphemeralContainers", func(t *testing.T) {
-		t.Parallel()
-
 		promReg := prometheus.NewRegistry()
 		reg := NewRegistry(promReg)
 
@@ -151,6 +153,12 @@ func TestRegistryMetrics(t *testing.T) {
 		require.Equal(t, float64(0), testutil.ToFloat64(
 			reg.podCount.WithLabelValues("default", "demo", "node-a", "ReplicaSet", "demo-rs"),
 		))
+		require.Equal(t, float64(0), testutil.ToFloat64(
+			reg.podRunningPresent.WithLabelValues("default", "demo", "node-a", "ReplicaSet", "demo-rs"),
+		))
+		require.Equal(t, float64(0), testutil.ToFloat64(
+			reg.podRunningCount.WithLabelValues("default", "demo", "node-a", "ReplicaSet", "demo-rs"),
+		))
 
 		require.Equal(t, float64(0), testutil.ToFloat64(
 			reg.containerInfo.WithLabelValues("default", "demo", "node-a", "ReplicaSet", "demo-rs", "debugger", "busybox:latest"),
@@ -162,16 +170,14 @@ func TestRegistryMetrics(t *testing.T) {
 			reg.containerRestartCount.WithLabelValues("default", "demo", "debugger"),
 		))
 		require.Equal(t, float64(0), testutil.ToFloat64(
-			reg.containerWaiting.WithLabelValues("default", "demo", "shell", "CrashLoopBackOff"),
+			reg.containerWaiting.WithLabelValues("default", "demo", "shell"),
 		))
 		require.Equal(t, float64(0), testutil.ToFloat64(
-			reg.containerTerminated.WithLabelValues("default", "demo", "terminated", "Completed"),
+			reg.containerTerminated.WithLabelValues("default", "demo", "terminated"),
 		))
 	})
 
 	t.Run("pod without ephemeral containers", func(t *testing.T) {
-		t.Parallel()
-
 		promReg := prometheus.NewRegistry()
 		reg := NewRegistry(promReg)
 
@@ -192,6 +198,12 @@ func TestRegistryMetrics(t *testing.T) {
 		))
 		require.Equal(t, float64(0), testutil.ToFloat64(
 			reg.podCount.WithLabelValues("default", "plain", "node-b", "", ""),
+		))
+		require.Equal(t, float64(0), testutil.ToFloat64(
+			reg.podRunningPresent.WithLabelValues("default", "plain", "node-b", "", ""),
+		))
+		require.Equal(t, float64(0), testutil.ToFloat64(
+			reg.podRunningCount.WithLabelValues("default", "plain", "node-b", "", ""),
 		))
 	})
 }

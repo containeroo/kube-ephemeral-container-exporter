@@ -43,19 +43,19 @@ func EphemeralContainerChanges(reg *metrics.Registry) predicate.Predicate {
 			}
 
 			// Ignore updates for Pods that never had ephemeral containers and still
-			// do not have any. We only need reconciliation when metrics already
-			// exist and must be cleaned up, or when new metrics must be created or
-			// updated for the current Pod state.
+			// do not have any.
 			if !utils.PodHasEphemeralContainers(oldPod) && !utils.PodHasEphemeralContainers(newPod) {
 				return false
 			}
 
-			// Allow the update through when relevant ephemeral-container fields
-			// changed. This includes the transition from "had ephemeral containers"
-			// to "has none", so the reconciler gets one final pass to remove the
-			// previously exported metric series.
+			// Status changes should reconcile so running/waiting/terminated metrics
+			// stay current. Spec/node/owner changes also reconcile, and some of them
+			// require deleting the old metric series first because label values change.
+			if ephemeralContainerStatusesChanged(oldPod, newPod) {
+				return true
+			}
+
 			if ephemeralContainersChanged(oldPod, newPod) ||
-				ephemeralContainerStatusesChanged(oldPod, newPod) ||
 				podNodeChanged(oldPod, newPod) ||
 				podOwnerChanged(oldPod, newPod) {
 				deleteOldPodMetrics(reg, oldPod)

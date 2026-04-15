@@ -73,7 +73,8 @@ func MetricsContain(expected string, timeout, interval time.Duration) {
 	}, timeout, interval).Should(BeTrue(), fmt.Sprintf("Expected metric text not found: %s", expected))
 }
 
-// MetricsConsistentlyNotContain checks that the expected metric text is absent.
+// MetricsConsistentlyNotContain checks that the expected metric text is absent
+// for the full duration.
 func MetricsConsistentlyNotContain(expected string, timeout, interval time.Duration) {
 	Consistently(func() bool {
 		metricsText, err := ScrapeMetrics()
@@ -82,6 +83,17 @@ func MetricsConsistentlyNotContain(expected string, timeout, interval time.Durat
 		}
 		return strings.Contains(metricsText, expected)
 	}, timeout, interval).Should(BeFalse(), fmt.Sprintf("Expected metric text should not be found: %s", expected))
+}
+
+// MetricsEventuallyNotContain checks that the expected metric text eventually disappears.
+func MetricsEventuallyNotContain(expected string, timeout, interval time.Duration) {
+	Eventually(func() bool {
+		metricsText, err := ScrapeMetrics()
+		if err != nil {
+			return false
+		}
+		return !strings.Contains(metricsText, expected)
+	}, timeout, interval).Should(BeTrue(), fmt.Sprintf("Expected metric text should eventually disappear: %s", expected))
 }
 
 // GetDirectOwner returns the direct controller owner of the Pod if one exists.

@@ -26,6 +26,7 @@ import (
 
 func TestFilterFunctions(t *testing.T) {
 	t.Parallel()
+
 	podWithoutEphemeral := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "plain",

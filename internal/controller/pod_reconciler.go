@@ -52,29 +52,18 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	ownerKind, ownerName := utils.ResolvePodOwner(pod)
 
-	// Update events can still reach this reconciler when a Pod previously had
-	// ephemeral containers but no longer has any. In that case, we must remove
-	// the old metric series and return without recreating zero-value metrics.
-	if !utils.PodHasEphemeralContainers(pod) {
-		r.Metrics.DeletePodEphemeralContainers(pod, ownerKind, ownerName)
-
-		r.Logger.Info(
-			"pod has no ephemeral containers, removed metrics if present",
-			"namespace", pod.Namespace,
-			"name", pod.Name,
-			"ownerKind", ownerKind,
-			"ownerName", ownerName,
-		)
-		return ctrl.Result{}, nil
-	}
-
+	// Reconcile is only triggered for Pods that currently have ephemeral containers
+	// or had relevant ephemeral-container related changes. Since ephemeral containers
+	// are effectively append-only on a Pod, a missing spec entry is not the normal
+	// cleanup path. Cleanup is handled on delete events and when old metric label
+	// values must be removed before recreating the series.
 	r.Metrics.UpdatePodEphemeralContainers(pod, ownerKind, ownerName)
 
 	r.Recorder.Event(
 		pod,
 		corev1.EventTypeNormal,
 		"UpdatedEphemeralContainerMetrics",
-		fmt.Sprintf("updated %d ephemeral containers", len(pod.Spec.EphemeralContainers)),
+		fmt.Sprintf("updated ephemeral-container metrics for %d attached containers", len(pod.Spec.EphemeralContainers)),
 	)
 	r.Logger.Info(
 		"updated pod ephemeral-container metrics",
@@ -82,7 +71,8 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		"name", pod.Name,
 		"ownerKind", ownerKind,
 		"ownerName", ownerName,
-		"ephemeralContainers", len(pod.Spec.EphemeralContainers),
+		"attachedEphemeralContainers", len(pod.Spec.EphemeralContainers),
+		"statusEntries", len(pod.Status.EphemeralContainerStatuses),
 	)
 
 	return ctrl.Result{}, nil

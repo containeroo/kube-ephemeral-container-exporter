@@ -22,11 +22,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Registry holds Prometheus metrics for the operator.
+// Registry holds Prometheus metrics for the exporter.
 type Registry struct {
-	reg                   prometheus.Registerer
 	podPresent            *prometheus.GaugeVec
 	podCount              *prometheus.GaugeVec
+	podRunningPresent     *prometheus.GaugeVec
+	podRunningCount       *prometheus.GaugeVec
 	containerInfo         *prometheus.GaugeVec
 	containerRunning      *prometheus.GaugeVec
 	containerTerminated   *prometheus.GaugeVec
@@ -45,7 +46,7 @@ func NewRegistry(reg prometheus.Registerer) *Registry {
 	podPresent := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "kube_pod_ephemeral_container_present",
-			Help: "Whether a pod currently has at least one ephemeral container attached (1 = yes, 0 = no)",
+			Help: "Whether a pod has at least one ephemeral container attached in spec (1 = yes, 0 = no)",
 		},
 		[]string{"namespace", "pod", "node", "owner_kind", "owner_name"},
 	)
@@ -53,7 +54,23 @@ func NewRegistry(reg prometheus.Registerer) *Registry {
 	podCount := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "kube_pod_ephemeral_container_count",
-			Help: "Number of ephemeral containers currently attached to a pod",
+			Help: "Number of ephemeral containers attached to a pod in spec",
+		},
+		[]string{"namespace", "pod", "node", "owner_kind", "owner_name"},
+	)
+
+	podRunningPresent := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kube_pod_ephemeral_container_running_present",
+			Help: "Whether a pod currently has at least one running ephemeral container (1 = yes, 0 = no)",
+		},
+		[]string{"namespace", "pod", "node", "owner_kind", "owner_name"},
+	)
+
+	podRunningCount := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kube_pod_ephemeral_container_running_count",
+			Help: "Number of currently running ephemeral containers in a pod",
 		},
 		[]string{"namespace", "pod", "node", "owner_kind", "owner_name"},
 	)
@@ -79,7 +96,7 @@ func NewRegistry(reg prometheus.Registerer) *Registry {
 			Name: "kube_pod_ephemeral_container_terminated",
 			Help: "Whether an ephemeral container is currently terminated (1 = yes, 0 = no)",
 		},
-		[]string{"namespace", "pod", "container", "reason"},
+		[]string{"namespace", "pod", "container"},
 	)
 
 	containerWaiting := prometheus.NewGaugeVec(
@@ -87,7 +104,7 @@ func NewRegistry(reg prometheus.Registerer) *Registry {
 			Name: "kube_pod_ephemeral_container_waiting",
 			Help: "Whether an ephemeral container is currently waiting (1 = yes, 0 = no)",
 		},
-		[]string{"namespace", "pod", "container", "reason"},
+		[]string{"namespace", "pod", "container"},
 	)
 
 	containerRestartCount := prometheus.NewGaugeVec(
@@ -101,6 +118,8 @@ func NewRegistry(reg prometheus.Registerer) *Registry {
 	reg.MustRegister(
 		podPresent,
 		podCount,
+		podRunningPresent,
+		podRunningCount,
 		containerInfo,
 		containerRunning,
 		containerTerminated,
@@ -109,9 +128,10 @@ func NewRegistry(reg prometheus.Registerer) *Registry {
 	)
 
 	return &Registry{
-		reg:                   reg,
 		podPresent:            podPresent,
 		podCount:              podCount,
+		podRunningPresent:     podRunningPresent,
+		podRunningCount:       podRunningCount,
 		containerInfo:         containerInfo,
 		containerRunning:      containerRunning,
 		containerTerminated:   containerTerminated,
@@ -120,20 +140,42 @@ func NewRegistry(reg prometheus.Registerer) *Registry {
 	}
 }
 
+// PodPresent exposes the pod attached-presence metric.
+func (r *Registry) PodPresent() *prometheus.GaugeVec {
+	return r.podPresent
+}
+
+// PodCount exposes the pod attached-count metric.
+func (r *Registry) PodCount() *prometheus.GaugeVec {
+	return r.podCount
+}
+
+// PodRunningPresent exposes the pod running-presence metric.
+func (r *Registry) PodRunningPresent() *prometheus.GaugeVec {
+	return r.podRunningPresent
+}
+
+// PodRunningCount exposes the pod running-count metric.
+func (r *Registry) PodRunningCount() *prometheus.GaugeVec {
+	return r.podRunningCount
+}
+
+// ContainerRunning exposes the container running metric.
+func (r *Registry) ContainerRunning() *prometheus.GaugeVec {
+	return r.containerRunning
+}
+
 // UpdatePodEphemeralContainers updates all ephemeral-container metrics for a pod.
 func (r *Registry) UpdatePodEphemeralContainers(pod *corev1.Pod, ownerKind, ownerName string) {
 	namespace := pod.Namespace
 	podName := pod.Name
 	node := pod.Spec.NodeName
-	count := len(pod.Spec.EphemeralContainers)
 
-	present := 0.0
-	if count > 0 {
-		present = 1.0
-	}
+	attachedCount := len(pod.Spec.EphemeralContainers)
+	attachedPresent := boolToFloat(attachedCount > 0)
 
-	r.podPresent.WithLabelValues(namespace, podName, node, ownerKind, ownerName).Set(present)
-	r.podCount.WithLabelValues(namespace, podName, node, ownerKind, ownerName).Set(float64(count))
+	r.podPresent.WithLabelValues(namespace, podName, node, ownerKind, ownerName).Set(attachedPresent)
+	r.podCount.WithLabelValues(namespace, podName, node, ownerKind, ownerName).Set(float64(attachedCount))
 
 	for _, container := range pod.Spec.EphemeralContainers {
 		r.containerInfo.WithLabelValues(
@@ -147,27 +189,27 @@ func (r *Registry) UpdatePodEphemeralContainers(pod *corev1.Pod, ownerKind, owne
 		).Set(1)
 	}
 
+	runningCount := 0
+
 	for _, status := range pod.Status.EphemeralContainerStatuses {
-		r.containerRunning.WithLabelValues(namespace, podName, status.Name).
-			Set(boolToFloat(status.State.Running != nil))
+		isRunning := status.State.Running != nil
+		isTerminated := status.State.Terminated != nil
+		isWaiting := status.State.Waiting != nil
 
-		r.containerRestartCount.WithLabelValues(namespace, podName, status.Name).
-			Set(float64(status.RestartCount))
-
-		terminatedReason := ""
-		if status.State.Terminated != nil {
-			terminatedReason = status.State.Terminated.Reason
+		if isRunning {
+			runningCount++
 		}
-		r.containerTerminated.WithLabelValues(namespace, podName, status.Name, terminatedReason).
-			Set(boolToFloat(status.State.Terminated != nil))
 
-		waitingReason := ""
-		if status.State.Waiting != nil {
-			waitingReason = status.State.Waiting.Reason
-		}
-		r.containerWaiting.WithLabelValues(namespace, podName, status.Name, waitingReason).
-			Set(boolToFloat(status.State.Waiting != nil))
+		r.containerRunning.WithLabelValues(namespace, podName, status.Name).Set(boolToFloat(isRunning))
+		r.containerTerminated.WithLabelValues(namespace, podName, status.Name).Set(boolToFloat(isTerminated))
+		r.containerWaiting.WithLabelValues(namespace, podName, status.Name).Set(boolToFloat(isWaiting))
+		r.containerRestartCount.WithLabelValues(namespace, podName, status.Name).Set(float64(status.RestartCount))
 	}
+
+	r.podRunningPresent.WithLabelValues(namespace, podName, node, ownerKind, ownerName).
+		Set(boolToFloat(runningCount > 0))
+	r.podRunningCount.WithLabelValues(namespace, podName, node, ownerKind, ownerName).
+		Set(float64(runningCount))
 }
 
 // DeletePodEphemeralContainers removes all metrics for the pod that can be derived from the given object.
@@ -178,6 +220,8 @@ func (r *Registry) DeletePodEphemeralContainers(pod *corev1.Pod, ownerKind, owne
 
 	r.podPresent.DeleteLabelValues(namespace, podName, node, ownerKind, ownerName)
 	r.podCount.DeleteLabelValues(namespace, podName, node, ownerKind, ownerName)
+	r.podRunningPresent.DeleteLabelValues(namespace, podName, node, ownerKind, ownerName)
+	r.podRunningCount.DeleteLabelValues(namespace, podName, node, ownerKind, ownerName)
 
 	for _, container := range pod.Spec.EphemeralContainers {
 		r.containerInfo.DeleteLabelValues(
@@ -193,19 +237,9 @@ func (r *Registry) DeletePodEphemeralContainers(pod *corev1.Pod, ownerKind, owne
 
 	for _, status := range pod.Status.EphemeralContainerStatuses {
 		r.containerRunning.DeleteLabelValues(namespace, podName, status.Name)
+		r.containerTerminated.DeleteLabelValues(namespace, podName, status.Name)
+		r.containerWaiting.DeleteLabelValues(namespace, podName, status.Name)
 		r.containerRestartCount.DeleteLabelValues(namespace, podName, status.Name)
-
-		terminatedReason := ""
-		if status.State.Terminated != nil {
-			terminatedReason = status.State.Terminated.Reason
-		}
-		r.containerTerminated.DeleteLabelValues(namespace, podName, status.Name, terminatedReason)
-
-		waitingReason := ""
-		if status.State.Waiting != nil {
-			waitingReason = status.State.Waiting.Reason
-		}
-		r.containerWaiting.DeleteLabelValues(namespace, podName, status.Name, waitingReason)
 	}
 }
 

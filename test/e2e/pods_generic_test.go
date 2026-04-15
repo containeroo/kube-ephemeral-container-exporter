@@ -87,8 +87,6 @@ var _ = Describe("Pods generic", Serial, Ordered, func() {
 			metricsText, err := testutils.ScrapeMetrics()
 			g.Expect(err).NotTo(HaveOccurred())
 
-			// Label order in Prometheus exposition is not guaranteed, so we assert
-			// stable fragments instead of one exact full sample line.
 			g.Expect(metricsText).To(ContainSubstring(`kube_pod_ephemeral_container_present{`))
 			g.Expect(metricsText).To(ContainSubstring(fmt.Sprintf(`namespace=%q`, refreshedPod.Namespace)))
 			g.Expect(metricsText).To(ContainSubstring(fmt.Sprintf(`pod=%q`, refreshedPod.Name)))
@@ -98,6 +96,22 @@ var _ = Describe("Pods generic", Serial, Ordered, func() {
 			g.Expect(metricsText).To(ContainSubstring(`} 1`))
 
 			g.Expect(metricsText).To(ContainSubstring(`kube_pod_ephemeral_container_count{`))
+			g.Expect(metricsText).To(ContainSubstring(fmt.Sprintf(`namespace=%q`, refreshedPod.Namespace)))
+			g.Expect(metricsText).To(ContainSubstring(fmt.Sprintf(`pod=%q`, refreshedPod.Name)))
+			g.Expect(metricsText).To(ContainSubstring(fmt.Sprintf(`node=%q`, refreshedPod.Spec.NodeName)))
+			g.Expect(metricsText).To(ContainSubstring(`owner_kind=""`))
+			g.Expect(metricsText).To(ContainSubstring(`owner_name=""`))
+			g.Expect(metricsText).To(ContainSubstring(`} 1`))
+
+			g.Expect(metricsText).To(ContainSubstring(`kube_pod_ephemeral_container_running_present{`))
+			g.Expect(metricsText).To(ContainSubstring(fmt.Sprintf(`namespace=%q`, refreshedPod.Namespace)))
+			g.Expect(metricsText).To(ContainSubstring(fmt.Sprintf(`pod=%q`, refreshedPod.Name)))
+			g.Expect(metricsText).To(ContainSubstring(fmt.Sprintf(`node=%q`, refreshedPod.Spec.NodeName)))
+			g.Expect(metricsText).To(ContainSubstring(`owner_kind=""`))
+			g.Expect(metricsText).To(ContainSubstring(`owner_name=""`))
+			g.Expect(metricsText).To(ContainSubstring(`} 1`))
+
+			g.Expect(metricsText).To(ContainSubstring(`kube_pod_ephemeral_container_running_count{`))
 			g.Expect(metricsText).To(ContainSubstring(fmt.Sprintf(`namespace=%q`, refreshedPod.Namespace)))
 			g.Expect(metricsText).To(ContainSubstring(fmt.Sprintf(`pod=%q`, refreshedPod.Name)))
 			g.Expect(metricsText).To(ContainSubstring(fmt.Sprintf(`node=%q`, refreshedPod.Spec.NodeName)))
@@ -150,11 +164,11 @@ var _ = Describe("Pods generic", Serial, Ordered, func() {
 		testutils.DeletePod(ctx, pod.Namespace, pod.Name)
 
 		By("waiting for metrics to be removed")
-		Eventually(func(g Gomega) {
-			metricsText, err := testutils.ScrapeMetrics()
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(metricsText).NotTo(ContainSubstring(fmt.Sprintf(`pod=%q`, pod.Name)))
-		}).WithContext(ctx).Within(90 * time.Second).ProbeEvery(2 * time.Second).Should(Succeed())
+		testutils.MetricsEventuallyNotContain(
+			fmt.Sprintf(`pod=%q`, pod.Name),
+			90*time.Second,
+			2*time.Second,
+		)
 	})
 
 	It("exports owner labels for a deployment-managed pod", func(ctx SpecContext) {

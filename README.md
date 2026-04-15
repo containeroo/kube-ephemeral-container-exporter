@@ -6,7 +6,7 @@
 [![GitHub tag](https://img.shields.io/github/tag/containeroo/kube-ephemeral-container-exporter.svg?style=flat-square)](https://github.com/containeroo/kube-ephemeral-container-exporter/releases/latest)
 [![license](https://img.shields.io/github/license/containeroo/kube-ephemeral-container-exporter.svg?style=flat-square)](LICENSE)
 
-`kube-ephemeral-container-exporter` watches Pods and exposes Prometheus metrics whenever ephemeral containers are attached to them. It is intended to provide visibility into debug container usage by exporting pod-level and container-level metrics for ephemeral containers and their states.
+`kube-ephemeral-container-exporter` watches Pods and exposes Prometheus metrics for ephemeral containers. It provides visibility into debug container usage by exporting metrics for ephemeral containers attached to a Pod, the number of ephemeral containers currently running, and per-container state such as running, waiting, terminated, and restart count.
 
 ## Prerequisites
 
@@ -29,14 +29,29 @@ If running in namespaced mode, ensure the associated `Role` and `RoleBinding` ar
 
 - The exporter watches Pod events.
 - It reconciles only when ephemeral-container related Pod fields change.
+- It reads attached ephemeral containers from `spec.ephemeralContainers`.
+- It reads runtime state from `status.ephemeralContainerStatuses`.
 - For matching Pods, it exports metrics describing:
-  - whether the Pod currently has ephemeral containers attached
+  - whether the Pod has ephemeral containers attached
   - how many ephemeral containers are attached
+  - whether the Pod currently has running ephemeral containers
+  - how many ephemeral containers are currently running
   - which ephemeral containers exist
-  - whether they are running, waiting, or terminated
-  - their restart count
+  - whether each ephemeral container is running, waiting, or terminated
+  - the restart count of each ephemeral container
 
-- When labels relevant to the metric series change, the exporter removes old metric series and recreates them with the updated label set.
+When labels relevant to a metric series change, such as `node`, `owner_kind`, or `owner_name`, the exporter removes the old series and recreates them with the updated label set.
+
+### Attached vs Running
+
+Ephemeral containers are effectively append-only in the Pod spec. That means an ephemeral container can still appear in `spec.ephemeralContainers` even when it is no longer running.
+
+Because of that, the exporter exposes separate metrics for:
+
+- ephemeral containers attached to the Pod
+- ephemeral containers currently running in the Pod
+
+This makes it possible to distinguish between historical debug container attachment and currently active debug sessions.
 
 ## What Is Monitored
 
@@ -81,31 +96,39 @@ An ephemeral container can later be attached to the Pod for debugging, for examp
 
 ### Available Metrics
 
-1. **Pod Has Ephemeral Containers**
+1. **Pod Has Ephemeral Containers Attached**
    - **Metric:** `kube_pod_ephemeral_container_present`
    - **Labels:** `namespace`, `pod`, `node`, `owner_kind`, `owner_name`
 
-2. **Ephemeral Container Count**
+2. **Attached Ephemeral Container Count**
    - **Metric:** `kube_pod_ephemeral_container_count`
    - **Labels:** `namespace`, `pod`, `node`, `owner_kind`, `owner_name`
 
-3. **Ephemeral Container Info**
+3. **Pod Has Running Ephemeral Containers**
+   - **Metric:** `kube_pod_ephemeral_container_running_present`
+   - **Labels:** `namespace`, `pod`, `node`, `owner_kind`, `owner_name`
+
+4. **Running Ephemeral Container Count**
+   - **Metric:** `kube_pod_ephemeral_container_running_count`
+   - **Labels:** `namespace`, `pod`, `node`, `owner_kind`, `owner_name`
+
+5. **Ephemeral Container Info**
    - **Metric:** `kube_pod_ephemeral_container_info`
    - **Labels:** `namespace`, `pod`, `node`, `owner_kind`, `owner_name`, `container`, `image`
 
-4. **Ephemeral Container Running**
+6. **Ephemeral Container Running**
    - **Metric:** `kube_pod_ephemeral_container_running`
    - **Labels:** `namespace`, `pod`, `container`
 
-5. **Ephemeral Container Terminated**
+7. **Ephemeral Container Terminated**
    - **Metric:** `kube_pod_ephemeral_container_terminated`
-   - **Labels:** `namespace`, `pod`, `container`, `reason`
+   - **Labels:** `namespace`, `pod`, `container`
 
-6. **Ephemeral Container Waiting**
+8. **Ephemeral Container Waiting**
    - **Metric:** `kube_pod_ephemeral_container_waiting`
-   - **Labels:** `namespace`, `pod`, `container`, `reason`
+   - **Labels:** `namespace`, `pod`, `container`
 
-7. **Ephemeral Container Restart Count**
+9. **Ephemeral Container Restart Count**
    - **Metric:** `kube_pod_ephemeral_container_restart_count`
    - **Labels:** `namespace`, `pod`, `container`
 
@@ -113,7 +136,9 @@ An ephemeral container can later be attached to the Pod for debugging, for examp
 
 - `owner_kind` and `owner_name` refer to the direct controller owner of the Pod when one exists.
 - `node` is included as a metric label, so when a Pod changes nodes, old metric series are removed and recreated with the new node label.
-- Labels such as `image` and `reason` can increase cardinality depending on cluster usage patterns.
+- `image` can increase cardinality depending on cluster usage patterns.
+- Pod-level metrics with `*_present` indicate whether at least one matching ephemeral container exists for the Pod.
+- Pod-level metrics with `*_count` expose the corresponding count for the Pod.
 
 ## Running locally
 
