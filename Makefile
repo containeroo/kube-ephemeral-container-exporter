@@ -35,6 +35,15 @@ KIND_VERSION ?= 0.31.0
 UNAME_S := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 KIND_BINARY := kind-$(UNAME_S)-amd64
 
+# Tagging
+VERSION_PREFIX ?= v
+LATEST_TAG := $(shell git tag --list '$(VERSION_PREFIX)*' --sort=-v:refname | head -n 1)
+CURRENT_VERSION := $(if $(LATEST_TAG),$(patsubst $(VERSION_PREFIX)%,%,$(LATEST_TAG)),0.0.0)
+NEXT_PATCH := $(shell echo "$(CURRENT_VERSION)" | awk -F. '{printf "%d.%d.%d", $$1, $$2, $$3 + 1}')
+NEXT_MINOR := $(shell echo "$(CURRENT_VERSION)" | awk -F. '{printf "%d.%d.0", $$1, $$2 + 1}')
+NEXT_MAJOR := $(shell echo "$(CURRENT_VERSION)" | awk -F. '{printf "%d.0.0", $$1 + 1}')
+
+
 ##@ General
 
 .PHONY: all
@@ -48,35 +57,25 @@ help: ## Display this help.
 
 ##@ Tagging
 
-VERSION_PREFIX ?= v
-LATEST_TAG = $(shell git tag --list "$(VERSION_PREFIX)*" --sort=-v:refname | head -n 1)
-VERSION = $(shell [ -n "$(LATEST_TAG)" ] && echo "$(LATEST_TAG)" | sed "s/^$(VERSION_PREFIX)//" || echo "0.0.0")
+.PHONY: tag tag-patch tag-minor tag-major push-tags
+tag-patch: ## Create the next patch tag locally.
+	@git tag -a "$(VERSION_PREFIX)$(NEXT_PATCH)" -m "Release $(VERSION_PREFIX)$(NEXT_PATCH)"
+	@echo "Created tag $(VERSION_PREFIX)$(NEXT_PATCH)"
 
-.PHONY: patch
-patch: ## Create a new patch release (x.y.Z+1)
-	@NEW_VERSION=$$(echo "$(VERSION)" | awk -F. '{printf "%d.%d.%d", $$1, $$2, $$3+1}') && \
-	git tag "$(VERSION_PREFIX)$${NEW_VERSION}" && \
-	echo "Tagged $(VERSION_PREFIX)$${NEW_VERSION}"
+tag-minor: ## Create the next minor tag locally.
+	@git tag -a "$(VERSION_PREFIX)$(NEXT_MINOR)" -m "Release $(VERSION_PREFIX)$(NEXT_MINOR)"
+	@echo "Created tag $(VERSION_PREFIX)$(NEXT_MINOR)"
 
-.PHONY: minor
-minor: ## Create a new minor release (x.Y+1.0)
-	@NEW_VERSION=$$(echo "$(VERSION)" | awk -F. '{printf "%d.%d.0", $$1, $$2+1}') && \
-	git tag "$(VERSION_PREFIX)$${NEW_VERSION}" && \
-	echo "Tagged $(VERSION_PREFIX)$${NEW_VERSION}"
+tag-major: ## Create the next major tag locally.
+	@git tag -a "$(VERSION_PREFIX)$(NEXT_MAJOR)" -m "Release $(VERSION_PREFIX)$(NEXT_MAJOR)"
+	@echo "Created tag $(VERSION_PREFIX)$(NEXT_MAJOR)"
 
-.PHONY: major
-major: ## Create a new major release (X+1.0.0)
-	@NEW_VERSION=$$(echo "$(VERSION)" | awk -F. '{printf "%d.0.0", $$1+1}') && \
-	git tag "$(VERSION_PREFIX)$${NEW_VERSION}" && \
-	echo "Tagged $(VERSION_PREFIX)$${NEW_VERSION}"
+push-tags: ## Push commits and tags to origin.
+	@git push --follow-tags
 
-.PHONY: tag
-tag: ## Show latest tag
-	@echo "Latest version: $(LATEST_TAG)"
+tag: ## Show latest tag.
+	@echo "Latest version: $(if $(LATEST_TAG),$(LATEST_TAG),none (next: $(VERSION_PREFIX)$(NEXT_PATCH)))"
 
-.PHONY: push
-push: ## Push tags to remote
-	git push --tags
 
 ##@ Development
 
