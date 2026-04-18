@@ -167,7 +167,7 @@ build: fmt vet ## Build binary.
 
 .PHONY: run
 run: fmt vet ## Run locally.
-	go run ./cmd/main.go $(ARGS)
+	go run ./cmd/main.go --leader-elect=false
 
 .PHONY: kustomize
 kustomize: yamlfmt ## Render kustomize manifests into a single file.
