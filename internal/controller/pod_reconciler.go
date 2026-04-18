@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/containeroo/kube-ephemeral-container-exporter/internal/metrics"
 	"github.com/containeroo/kube-ephemeral-container-exporter/internal/predicates"
@@ -26,7 +25,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -35,7 +33,6 @@ import (
 type PodReconciler struct {
 	KubeClient client.Client
 	Logger     logr.Logger
-	Recorder   record.EventRecorder
 	Metrics    *metrics.Registry
 }
 
@@ -59,12 +56,6 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// values must be removed before recreating the series.
 	r.Metrics.UpdatePodEphemeralContainers(pod, ownerKind, ownerName)
 
-	r.Recorder.Event(
-		pod,
-		corev1.EventTypeNormal,
-		"UpdatedEphemeralContainerMetrics",
-		fmt.Sprintf("updated ephemeral-container metrics for %d attached containers", len(pod.Spec.EphemeralContainers)),
-	)
 	r.Logger.Info(
 		"updated pod ephemeral-container metrics",
 		"namespace", pod.Namespace,

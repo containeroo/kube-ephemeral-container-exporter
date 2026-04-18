@@ -134,7 +134,6 @@ func Run(ctx context.Context, version string, args []string, w io.Writer) error 
 		Logger:     logging.ControllerLogger(logger),
 		KubeClient: mgr.GetClient(),
 		Metrics:    metricsReg,
-		Recorder:   mgr.GetEventRecorderFor("pod-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to create Pod controller: %w", err)
 	}

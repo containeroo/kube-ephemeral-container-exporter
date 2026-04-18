@@ -32,7 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -52,7 +51,6 @@ func TestPodReconcilerReconcile(t *testing.T) {
 		reconciler := &PodReconciler{
 			KubeClient: kubeClient,
 			Logger:     logr.Discard(),
-			Recorder:   record.NewFakeRecorder(10),
 			Metrics:    metricsReg,
 		}
 
@@ -120,7 +118,6 @@ func TestPodReconcilerReconcile(t *testing.T) {
 		reconciler := &PodReconciler{
 			KubeClient: kubeClient,
 			Logger:     logr.Discard(),
-			Recorder:   record.NewFakeRecorder(10),
 			Metrics:    metricsReg,
 		}
 
@@ -177,7 +174,6 @@ func TestPodReconcilerReconcile(t *testing.T) {
 		reconciler := &PodReconciler{
 			KubeClient: kubeClient,
 			Logger:     logr.Discard(),
-			Recorder:   record.NewFakeRecorder(10),
 			Metrics:    metricsReg,
 		}
 
@@ -247,7 +243,6 @@ func TestPodReconcilerNotFoundIsIgnored(t *testing.T) {
 	reconciler := &PodReconciler{
 		KubeClient: kubeClient,
 		Logger:     logr.Discard(),
-		Recorder:   record.NewFakeRecorder(10),
 		Metrics:    metricsReg,
 	}
 

@@ -54,6 +54,8 @@ func EphemeralContainerChanges(reg *metrics.Registry) predicate.Predicate {
 				return true
 			}
 
+			// Spec/node/owner changes also reconcile so the metrics registry can
+			// rebuild the pod's derived series from the latest labels and spec.
 			if ephemeralContainersChanged(oldPod, newPod) ||
 				podNodeChanged(oldPod, newPod) ||
 				podOwnerChanged(oldPod, newPod) {
