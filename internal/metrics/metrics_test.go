@@ -145,7 +145,7 @@ func TestRegistryMetrics(t *testing.T) {
 		reg := NewRegistry(promReg)
 
 		reg.UpdatePodEphemeralContainers(pod, "ReplicaSet", "demo-rs")
-		reg.DeletePodEphemeralContainers(pod, "ReplicaSet", "demo-rs")
+		reg.DeletePodEphemeralContainers(pod)
 
 		require.Equal(t, float64(0), testutil.ToFloat64(
 			reg.podPresent.WithLabelValues("default", "demo", "node-a", "ReplicaSet", "demo-rs"),
@@ -174,6 +174,53 @@ func TestRegistryMetrics(t *testing.T) {
 		))
 		require.Equal(t, float64(0), testutil.ToFloat64(
 			reg.containerTerminated.WithLabelValues("default", "demo", "terminated"),
+		))
+	})
+
+	t.Run("authoritative cleanup removes stale status series", func(t *testing.T) {
+		promReg := prometheus.NewRegistry()
+		reg := NewRegistry(promReg)
+
+		reg.UpdatePodEphemeralContainers(pod, "ReplicaSet", "demo-rs")
+
+		updatedPod := pod.DeepCopy()
+		updatedPod.Status.EphemeralContainerStatuses = []corev1.ContainerStatus{
+			{
+				Name:         "debugger",
+				RestartCount: 3,
+				State: corev1.ContainerState{
+					Running: &corev1.ContainerStateRunning{},
+				},
+			},
+		}
+
+		reg.UpdatePodEphemeralContainers(updatedPod, "ReplicaSet", "demo-rs")
+
+		require.Equal(t, 1, testutil.CollectAndCount(reg.containerWaiting))
+		require.Equal(t, float64(0), testutil.ToFloat64(
+			reg.containerWaiting.WithLabelValues("default", "demo", "debugger"),
+		))
+		require.Equal(t, 1, testutil.CollectAndCount(reg.containerRunning))
+		require.Equal(t, float64(3), testutil.ToFloat64(
+			reg.containerRestartCount.WithLabelValues("default", "demo", "debugger"),
+		))
+	})
+
+	t.Run("authoritative cleanup replaces old label sets", func(t *testing.T) {
+		promReg := prometheus.NewRegistry()
+		reg := NewRegistry(promReg)
+
+		reg.UpdatePodEphemeralContainers(pod, "ReplicaSet", "demo-rs")
+
+		relocatedPod := pod.DeepCopy()
+		relocatedPod.Spec.NodeName = "node-b"
+
+		reg.UpdatePodEphemeralContainers(relocatedPod, "ReplicaSet", "demo-rs")
+
+		require.Equal(t, 1, testutil.CollectAndCount(reg.podPresent))
+		require.Equal(t, 2, testutil.CollectAndCount(reg.containerInfo))
+		require.Equal(t, float64(1), testutil.ToFloat64(
+			reg.podPresent.WithLabelValues("default", "demo", "node-b", "ReplicaSet", "demo-rs"),
 		))
 	})
 

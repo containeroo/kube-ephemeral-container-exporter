@@ -19,16 +19,8 @@ package predicates
 import (
 	"reflect"
 
-	"github.com/containeroo/kube-ephemeral-container-exporter/internal/metrics"
-	"github.com/containeroo/kube-ephemeral-container-exporter/internal/utils"
 	corev1 "k8s.io/api/core/v1"
 )
-
-// deleteOldPodMetrics removes all metric series derived from the given Pod.
-func deleteOldPodMetrics(reg *metrics.Registry, pod *corev1.Pod) {
-	ownerKind, ownerName := utils.ResolvePodOwner(pod)
-	reg.DeletePodEphemeralContainers(pod, ownerKind, ownerName)
-}
 
 // ephemeralContainersChanged reports whether the Pod's ephemeral container spec changed.
 func ephemeralContainersChanged(oldPod, newPod *corev1.Pod) bool {

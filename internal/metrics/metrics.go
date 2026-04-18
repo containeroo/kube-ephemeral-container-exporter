@@ -17,9 +17,8 @@ limitations under the License.
 package metrics
 
 import (
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/prometheus/client_golang/prometheus"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // Registry holds Prometheus metrics for the exporter.
@@ -171,6 +170,10 @@ func (r *Registry) UpdatePodEphemeralContainers(pod *corev1.Pod, ownerKind, owne
 	podName := pod.Name
 	node := pod.Spec.NodeName
 
+	// Rebuild the pod's derived series from scratch so status removals and label
+	// changes do not leave stale metrics behind.
+	r.deletePodMetricSeries(namespace, podName)
+
 	attachedCount := len(pod.Spec.EphemeralContainers)
 	attachedPresent := boolToFloat(attachedCount > 0)
 
@@ -212,35 +215,26 @@ func (r *Registry) UpdatePodEphemeralContainers(pod *corev1.Pod, ownerKind, owne
 		Set(float64(runningCount))
 }
 
-// DeletePodEphemeralContainers removes all metrics for the pod that can be derived from the given object.
-func (r *Registry) DeletePodEphemeralContainers(pod *corev1.Pod, ownerKind, ownerName string) {
-	namespace := pod.Namespace
-	podName := pod.Name
-	node := pod.Spec.NodeName
+// DeletePodEphemeralContainers removes all metrics derived from the pod.
+func (r *Registry) DeletePodEphemeralContainers(pod *corev1.Pod) {
+	r.deletePodMetricSeries(pod.Namespace, pod.Name)
+}
 
-	r.podPresent.DeleteLabelValues(namespace, podName, node, ownerKind, ownerName)
-	r.podCount.DeleteLabelValues(namespace, podName, node, ownerKind, ownerName)
-	r.podRunningPresent.DeleteLabelValues(namespace, podName, node, ownerKind, ownerName)
-	r.podRunningCount.DeleteLabelValues(namespace, podName, node, ownerKind, ownerName)
-
-	for _, container := range pod.Spec.EphemeralContainers {
-		r.containerInfo.DeleteLabelValues(
-			namespace,
-			podName,
-			node,
-			ownerKind,
-			ownerName,
-			container.Name,
-			container.Image,
-		)
+func (r *Registry) deletePodMetricSeries(namespace, podName string) {
+	labels := prometheus.Labels{
+		"namespace": namespace,
+		"pod":       podName,
 	}
 
-	for _, status := range pod.Status.EphemeralContainerStatuses {
-		r.containerRunning.DeleteLabelValues(namespace, podName, status.Name)
-		r.containerTerminated.DeleteLabelValues(namespace, podName, status.Name)
-		r.containerWaiting.DeleteLabelValues(namespace, podName, status.Name)
-		r.containerRestartCount.DeleteLabelValues(namespace, podName, status.Name)
-	}
+	r.podPresent.DeletePartialMatch(labels)
+	r.podCount.DeletePartialMatch(labels)
+	r.podRunningPresent.DeletePartialMatch(labels)
+	r.podRunningCount.DeletePartialMatch(labels)
+	r.containerInfo.DeletePartialMatch(labels)
+	r.containerRunning.DeletePartialMatch(labels)
+	r.containerTerminated.DeletePartialMatch(labels)
+	r.containerWaiting.DeletePartialMatch(labels)
+	r.containerRestartCount.DeletePartialMatch(labels)
 }
 
 // boolToFloat converts a bool to a Prometheus-friendly numeric value.
