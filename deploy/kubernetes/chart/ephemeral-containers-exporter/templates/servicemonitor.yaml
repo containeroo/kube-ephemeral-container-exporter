@@ -3,11 +3,12 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ include "chart.fullname" . }}
-  namespace: {{ .Release.Namespace }}
+  name: {{ include "chart.serviceMonitorName" . }}
+  namespace: {{ include "chart.namespaceName" . }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 spec:
+  jobLabel: {{ .Values.metrics.serviceMonitor.jobLabel }}
   endpoints:
     - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
       path: /metrics

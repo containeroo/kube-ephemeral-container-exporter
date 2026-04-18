@@ -1,0 +1,67 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: kube-ephemeral-container-exporter
+  namespace: kube-ephemeral-container-exporter-system
+  labels:
+    app.kubernetes.io/name: kube-ephemeral-container-exporter
+    app.kubernetes.io/component: controller
+spec:
+  description: "Policy for kube-ephemeral-container-exporter"
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: kube-ephemeral-container-exporter
+      app.kubernetes.io/component: controller
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/instance: kube-prometheus-stack-prometheus
+            app.kubernetes.io/name: prometheus
+            "k8s:io.kubernetes.pod.namespace": observability
+      toPorts:
+        - ports:
+            - port: "8443"
+              protocol: TCP
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+          rules:
+            dns:
+              - matchPattern: "*"
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "6443"
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: prometheus-egress-kube-ephemeral-container-exporter
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: kube-ephemeral-container-exporter
+    app.kubernetes.io/component: controller
+spec:
+  description: "Policy for prometheus-egress-kube-ephemeral-container-exporter"
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/instance: kube-prometheus-stack-prometheus
+      app.kubernetes.io/name: prometheus
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: kube-ephemeral-container-exporter
+            app.kubernetes.io/component: controller
+            "k8s:io.kubernetes.pod.namespace": kube-ephemeral-container-exporter-system
+      toPorts:
+        - ports:
+            - port: "8443"

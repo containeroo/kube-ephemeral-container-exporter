@@ -8,13 +8,12 @@ metadata:
     app.kubernetes.io/name: kube-ephemeral-container-exporter
     app.kubernetes.io/component: controller
 spec:
+  jobLabel: app.kubernetes.io/name
   endpoints:
     - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
       path: /metrics
       port: metrics
-      scheme: https
-      tlsConfig:
-        insecureSkipVerify: true
+      scheme: http
   selector:
     matchLabels:
       app.kubernetes.io/name: kube-ephemeral-container-exporter

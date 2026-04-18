@@ -23,8 +23,8 @@ rules:
       - get
       - list
       - watch
-  {{- if .Values.clusterRole.extraRules }}
-  {{- toYaml .Values.clusterRole.extraRules | nindent 2 }}
+  {{- with .Values.clusterRole.extraRules }}
+  {{- toYaml . | nindent 2 }}
   {{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -40,5 +40,5 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ include "chart.serviceAccountName" . }}
-    namespace: {{ .Release.Namespace }}
+    namespace: {{ include "chart.namespaceName" . }}
 {{- end }}

@@ -3,8 +3,8 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: {{ include "chart.fullname" . }}-alerts
-  namespace: {{ .Values.metrics.prometheusRule.namespace }}
+  name: {{ include "chart.prometheusRuleName" . }}
+  namespace: {{ default (include "chart.namespaceName" .) .Values.metrics.prometheusRule.namespace }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
     {{- with .Values.metrics.prometheusRule.additionalLabels }}
@@ -14,22 +14,27 @@ spec:
   groups:
     - name: kube-ephemeral-container-exporter-alerts
       rules:
-        - alert: EphemeralContainersExporterMetricsMissing
+        {{- if .Values.metrics.prometheusRule.exporterDown.enabled }}
+        - alert: EphemeralContainersExporterDown
           expr: |
-            absent(kube_pod_ephemeral_container_present)
-          for: 5m
+            absent(up{job="kube-ephemeral-container-exporter"}) or
+            max_over_time(up{job="kube-ephemeral-container-exporter"}[{{ .Values.metrics.prometheusRule.exporterDown.lookback }}]) < 1
+          for: {{ .Values.metrics.prometheusRule.exporterDown.for }}
           labels:
-            severity: {{ .Values.metrics.prometheusRule.severity | quote }}
+            severity: {{ .Values.metrics.prometheusRule.exporterDown.severity | quote }}
           annotations:
-            summary: kube-ephemeral-container-exporter metrics missing
-            description: kube-ephemeral-container-exporter metrics are not being scraped for {{ "{{ $labels.job }}" }}.
-        - alert: EphemeralContainersDetected
-          expr: max_over_time(kube_pod_ephemeral_container_present[5m]) > 0
-          for: 5m
+            summary: kube-ephemeral-container-exporter is unavailable
+            description: kube-ephemeral-container-exporter has not exposed a healthy scrape target for the last {{ .Values.metrics.prometheusRule.exporterDown.lookback }}.
+        {{- end }}
+        {{- if .Values.metrics.prometheusRule.longRunning.enabled }}
+        - alert: EphemeralContainerRunningTooLong
+          expr: kube_pod_ephemeral_container_running_present > 0
+          for: {{ .Values.metrics.prometheusRule.longRunning.for }}
           labels:
-            severity: {{ .Values.metrics.prometheusRule.severity | quote }}
+            severity: {{ .Values.metrics.prometheusRule.longRunning.severity | quote }}
           annotations:
-            summary: Ephemeral containers detected
+            summary: Ephemeral container running too long
             description: >-
-              One or more Pods reported attached ephemeral containers in the last 5 minutes.
+              Pod {{ "{{ $labels.namespace }}" }}/{{ "{{ $labels.pod }}" }} has had at least one running ephemeral container for more than {{ .Values.metrics.prometheusRule.longRunning.for }}.
+        {{- end }}
 {{- end }}

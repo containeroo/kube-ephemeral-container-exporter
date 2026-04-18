@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "chart.fullname" . }}
+  namespace: {{ include "chart.namespaceName" . }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 spec:
@@ -12,13 +13,13 @@ spec:
       {{- include "chart.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       labels:
         {{- include "chart.selectorLabels" . | nindent 8 }}
         {{- with .Values.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-      annotations:
-        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
@@ -27,19 +28,25 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.podSecurityContext }}
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: kube-ephemeral-container-exporter
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
           securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.env }}
           env:
-            {{- range .Values.env }}
+            {{- range . }}
             - name: {{ .name }}
               value: {{ .value | quote }}
             {{- end }}
+          {{- end }}
           ports:
             {{- if .Values.metrics.enabled }}
             - name: metrics
@@ -53,25 +60,33 @@ spec:
             {{- if not .Values.metrics.enabled }}
             - --metrics-enabled=false
             {{- end }}
-            {{- if .Values.leaderElection.enabled }}
-            - --leader-elect
-            {{- end }}
             {{- if .Values.metrics.address }}
             - --metrics-bind-address={{ .Values.metrics.address }}
             {{- end }}
             {{- if not .Values.metrics.secure }}
             - --metrics-secure=false
             {{- end }}
+            {{- if .Values.probes.address }}
+            - --health-probe-bind-address={{ .Values.probes.address }}
+            {{- end }}
+            {{- if .Values.server.enableHTTP2 }}
+            - --enable-http2
+            {{- end }}
+            {{- if not .Values.leaderElection.enabled }}
+            - --leader-elect=false
+            {{- end }}
             {{- if .Values.watchNamespaces }}
             {{- range .Values.watchNamespaces }}
             - --watch-namespace={{ . }}
             {{- end }}
             {{- end }}
-            {{- if eq .Values.logging.format "console" }}
+            {{- if ne .Values.logging.format "json" }}
+            - --log-encoder={{ .Values.logging.format }}
+            {{- end }}
+            {{- if .Values.logging.devel }}
             - --log-devel
             {{- end }}
-            - --log-encoder={{ .Values.logging.format }}
-            {{- if .Values.logging.stacktraceLevel }}
+            {{- if ne .Values.logging.stacktraceLevel "panic" }}
             - --log-stacktrace-level={{ .Values.logging.stacktraceLevel }}
             {{- end }}
             {{- range .Values.extraArgs }}
@@ -94,10 +109,16 @@ spec:
         {{- if .Values.sidecars }}
         {{- toYaml .Values.sidecars | nindent 8 }}
         {{- end }}
+      {{- with .Values.nodeSelector }}
       nodeSelector:
-        {{- toYaml .Values.nodeSelector | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
       tolerations:
-        {{- toYaml .Values.tolerations | nindent 8 }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
       affinity:
-        {{- toYaml .Values.affinity | nindent 8 }}
-      terminationGracePeriodSeconds: 10
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}

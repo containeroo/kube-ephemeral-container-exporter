@@ -7,8 +7,6 @@ Expand the name of the chart.
 
 {{/*
 Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-If release name contains chart name it will be used as a full name.
 */}}
 {{- define "chart.fullname" -}}
 {{- if .Values.fullnameOverride }}
@@ -24,34 +22,22 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 
 {{/*
-Create chart name and version as used by the chart label.
-*/}}
-{{- define "chart.chart" -}}
-{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
-{{- end }}
-
-{{/*
-Common labels
+Common labels.
 */}}
 {{- define "chart.labels" -}}
-helm.sh/chart: {{ include "chart.chart" . }}
-{{ include "chart.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
-{{- end }}
-app.kubernetes.io/d: {{ .Release.Service }}
+app.kubernetes.io/name: {{ include "chart.name" . }}
+app.kubernetes.io/component: controller
 {{- end }}
 
 {{/*
-Selector labels
+Selector labels.
 */}}
 {{- define "chart.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "chart.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
+{{ include "chart.labels" . }}
 {{- end }}
 
 {{/*
-Create the name of the service account to use
+Create the name of the service account to use.
 */}}
 {{- define "chart.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
@@ -61,14 +47,55 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
-
 {{/*
 Create the name of the cluster role to use.
 */}}
 {{- define "chart.clusterRoleName" -}}
 {{- if .Values.clusterRole.create -}}
-    {{ default (include "chart.fullname" .) .Values.clusterRole.name }}
+{{ default (printf "%s-manager" (include "chart.fullname" .)) .Values.clusterRole.name }}
 {{- else -}}
-    {{ default "default" .Values.clusterRole.name }}
+{{ default "default" .Values.clusterRole.name }}
 {{- end -}}
+{{- end -}}
+
+{{/*
+Resolve the namespace to use for namespaced objects.
+*/}}
+{{- define "chart.namespaceName" -}}
+{{- default .Release.Namespace .Values.namespace.name -}}
+{{- end -}}
+
+{{/*
+Metrics auth cluster role name.
+*/}}
+{{- define "chart.metricsAuthClusterRoleName" -}}
+{{- printf "%s-metrics-auth" (include "chart.fullname" .) -}}
+{{- end -}}
+
+{{/*
+Leader election role name.
+*/}}
+{{- define "chart.leaderElectionRoleName" -}}
+{{- printf "%s-leader-election" (include "chart.fullname" .) -}}
+{{- end -}}
+
+{{/*
+Metrics service name.
+*/}}
+{{- define "chart.metricsServiceName" -}}
+{{- printf "%s-metrics" (include "chart.fullname" .) -}}
+{{- end -}}
+
+{{/*
+ServiceMonitor name.
+*/}}
+{{- define "chart.serviceMonitorName" -}}
+{{- printf "%s-metrics-monitor" (include "chart.fullname" .) -}}
+{{- end -}}
+
+{{/*
+PrometheusRule name.
+*/}}
+{{- define "chart.prometheusRuleName" -}}
+{{- printf "%s-alerts" (include "chart.fullname" .) -}}
 {{- end -}}
