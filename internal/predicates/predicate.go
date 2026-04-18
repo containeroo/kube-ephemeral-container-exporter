@@ -48,8 +48,8 @@ func EphemeralContainerChanges(reg *metrics.Registry) predicate.Predicate {
 				return false
 			}
 
-			// Status changes should reconcile so running/waiting/terminated metrics
-			// stay current. Spec/node/owner changes also reconcile.
+			// Metric-relevant status changes should reconcile so
+			// running/waiting/terminated/restart metrics stay current.
 			if ephemeralContainerStatusesChanged(oldPod, newPod) {
 				return true
 			}
@@ -70,6 +70,8 @@ func EphemeralContainerChanges(reg *metrics.Registry) predicate.Predicate {
 				return false
 			}
 
+			// Delete events cannot be reconciled from the API anymore, so cleanup
+			// the pod's derived metric series directly and do not enqueue.
 			reg.DeletePodEphemeralContainers(pod)
 			return false
 		},

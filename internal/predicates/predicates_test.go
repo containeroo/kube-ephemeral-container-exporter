@@ -116,6 +116,16 @@ func TestEphemeralContainerChanges(t *testing.T) {
 		assert.True(t, pred.Update(e))
 	})
 
+	t.Run("Update event denied when only non-exported status fields changed", func(t *testing.T) {
+		oldPod := podWithEphemeral.DeepCopy()
+		newPod := podWithEphemeral.DeepCopy()
+		newPod.Status.EphemeralContainerStatuses[0].ContainerID = "containerd://debugger"
+		newPod.Status.EphemeralContainerStatuses[0].ImageID = "sha256:deadbeef"
+
+		e := event.UpdateEvent{ObjectOld: oldPod, ObjectNew: newPod}
+		assert.False(t, pred.Update(e))
+	})
+
 	t.Run("Update event allowed when node changed", func(t *testing.T) {
 		oldPod := podWithEphemeral.DeepCopy()
 		newPod := podWithEphemeral.DeepCopy()

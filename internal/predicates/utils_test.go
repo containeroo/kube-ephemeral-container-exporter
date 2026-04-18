@@ -89,6 +89,27 @@ func TestFilterFunctions(t *testing.T) {
 		assert.False(t, ephemeralContainerStatusesChanged(oldPod, oldPod.DeepCopy()))
 	})
 
+	t.Run("helper ephemeralContainerStatusesChanged ignores non-exported fields", func(t *testing.T) {
+		t.Parallel()
+		oldPod := podWithEphemeral.DeepCopy()
+		newPod := podWithEphemeral.DeepCopy()
+		newPod.Status.EphemeralContainerStatuses[0].ContainerID = "containerd://debugger"
+		newPod.Status.EphemeralContainerStatuses[0].ImageID = "sha256:deadbeef"
+		newPod.Status.EphemeralContainerStatuses[0].Ready = true
+
+		assert.False(t, ephemeralContainerStatusesChanged(oldPod, newPod))
+	})
+
+	t.Run("helper ephemeralContainersChanged ignores non-exported spec fields", func(t *testing.T) {
+		t.Parallel()
+		oldPod := podWithEphemeral.DeepCopy()
+		newPod := podWithEphemeral.DeepCopy()
+		newPod.Spec.EphemeralContainers[0].EphemeralContainerCommon.Command = []string{"sh", "-c", "sleep 10"}
+		newPod.Spec.EphemeralContainers[0].TargetContainerName = "other"
+
+		assert.False(t, ephemeralContainersChanged(oldPod, newPod))
+	})
+
 	t.Run("helper podNodeChanged", func(t *testing.T) {
 		t.Parallel()
 		oldPod := podWithEphemeral.DeepCopy()
