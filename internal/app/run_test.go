@@ -65,7 +65,7 @@ func TestRun(t *testing.T) {
 		err := Run(ctx, "v0.0.0", args, out)
 
 		require.Error(t, err)
-		assert.EqualError(t, err, "error parsing arguments: unknown flag: --invalid-flag")
+		assert.EqualError(t, err, "error parsing arguments: unknown flag --invalid-flag")
 	})
 
 	t.Run("Request version", func(t *testing.T) {
