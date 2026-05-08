@@ -87,6 +87,6 @@ func TestRun(t *testing.T) {
 		err := Run(ctx, "v0.0.0", args, out)
 
 		require.Error(t, err)
-		assert.EqualError(t, err, "error parsing arguments: invalid value for flag --log-encoder: must be one of: json, console.")
+		assert.EqualError(t, err, "error parsing arguments: invalid value for flag --log-encoder: must be one of: json, console")
 	})
 }
