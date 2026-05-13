@@ -26,8 +26,6 @@ spec:
         - name: kube-ephemeral-container-exporter
           image: ghcr.io/containeroo/kube-ephemeral-container-exporter:latest
           imagePullPolicy: Always
-          args:
-            - --metrics-secure=false
           ports:
             - name: metrics
               containerPort: 8443
