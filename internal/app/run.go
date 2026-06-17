@@ -64,7 +64,10 @@ func Run(ctx context.Context, version string, args []string, stdOut, stdErr io.W
 	setupLog.Info("initializing kube-ephemeral-container-exporter", "version", version)
 
 	if len(flags.OverriddenValues) > 0 {
-		setupLog.Info("CLI overrides", "overrides", flags.OverriddenValues)
+		logger.Info(
+			"cli overrides",
+			"overrides", flags.OverriddenValues,
+		)
 	}
 
 	tlsOpts := []func(*tls.Config){}
