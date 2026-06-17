@@ -48,36 +48,28 @@ func init() {
 }
 
 // Run is the main function of the application.
-func Run(ctx context.Context, version string, args []string, w io.Writer) error {
+func Run(ctx context.Context, version string, args []string, stdOut, stdErr io.Writer) error {
 	flags, err := flag.ParseArgs(args, version)
 	if err != nil {
 		if tinyflags.IsHelpRequested(err) || tinyflags.IsVersionRequested(err) {
-			fmt.Fprint(w, err.Error()) // nolint:errcheck
+			_, _ = fmt.Fprint(stdOut, err.Error())
 			return nil
 		}
-		return fmt.Errorf("error parsing arguments: %w", err)
+		_, _ = fmt.Fprintln(stdErr, err)
+		return err
 	}
 
-	logger, err := logging.InitLogging(
-		flags.LogDev,
-		flags.LogEncoder,
-		flags.LogStacktraceLevel,
-		w,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to initialize logging: %w", err)
-	}
-
-	systemLog := logging.SystemLogger(logger)
-	systemLog.Info("initializing kube-ephemeral-container-exporter", "version", version)
+	logger := logging.InitLogging(flags, stdOut)
+	setupLog := logger.WithName("setup")
+	setupLog.Info("initializing kube-ephemeral-container-exporter", "version", version)
 
 	if len(flags.OverriddenValues) > 0 {
-		systemLog.Info("CLI overrides", "overrides", flags.OverriddenValues)
+		setupLog.Info("CLI overrides", "overrides", flags.OverriddenValues)
 	}
 
 	tlsOpts := []func(*tls.Config){}
 	if !flags.EnableHTTP2 {
-		systemLog.Info("disabling HTTP/2 for compatibility")
+		setupLog.Info("disabling HTTP/2 for compatibility")
 		tlsOpts = append(tlsOpts, func(c *tls.Config) {
 			c.NextProtos = []string{"http/1.1"}
 		})
@@ -108,10 +100,12 @@ func Run(ctx context.Context, version string, args []string, w io.Writer) error 
 		return fmt.Errorf("unable to get Kubernetes REST config: %w", err)
 	}
 
+	reconcilerLog := logger.WithName("reconciler")
+
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
-		Logger:                 logging.ControllerLogger(logger),
+		Logger:                 reconcilerLog,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: flags.ProbeAddr,
 		LeaderElection:         flags.LeaderElection,
@@ -123,15 +117,15 @@ func Run(ctx context.Context, version string, args []string, w io.Writer) error 
 	}
 
 	if len(flags.WatchNamespaces) == 0 {
-		systemLog.Info("namespace scope", "mode", "cluster-wide")
+		setupLog.Info("namespace scope", "mode", "cluster-wide")
 	} else {
-		systemLog.Info("namespace scope", "mode", "namespaced", "namespaces", flags.WatchNamespaces)
+		setupLog.Info("namespace scope", "mode", "namespaced", "namespaces", flags.WatchNamespaces)
 	}
 
 	metricsReg := internalmetrics.NewRegistry(crmetrics.Registry)
 
 	if err := (&controller.PodReconciler{
-		Logger:     logging.ControllerLogger(logger),
+		Logger:     &reconcilerLog,
 		KubeClient: mgr.GetClient(),
 		Metrics:    metricsReg,
 	}).SetupWithManager(mgr); err != nil {
@@ -145,7 +139,7 @@ func Run(ctx context.Context, version string, args []string, w io.Writer) error 
 		return fmt.Errorf("failed to set up ready check: %w", err)
 	}
 
-	systemLog.Info("starting manager")
+	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {
 		return fmt.Errorf("manager encountered an error while running: %w", err)
 	}

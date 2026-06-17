@@ -38,10 +38,11 @@ func TestRun(t *testing.T) {
 			"--health-probe-bind-address=:0",
 		}
 		out := &bytes.Buffer{}
+		errOut := &bytes.Buffer{}
 
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- Run(ctx, "v0.0.0", args, out)
+			errCh <- Run(ctx, "v0.0.0", args, out, errOut)
 		}()
 
 		time.Sleep(2 * time.Second)
@@ -61,19 +62,21 @@ func TestRun(t *testing.T) {
 		ctx := t.Context()
 		args := []string{"--invalid-flag"}
 		out := &bytes.Buffer{}
+		errOut := &bytes.Buffer{}
 
-		err := Run(ctx, "v0.0.0", args, out)
+		err := Run(ctx, "v0.0.0", args, out, errOut)
 
 		require.Error(t, err)
-		assert.EqualError(t, err, "error parsing arguments: unknown flag --invalid-flag")
+		assert.EqualError(t, err, "unknown flag --invalid-flag")
 	})
 
 	t.Run("Request version", func(t *testing.T) {
 		ctx := t.Context()
 		args := []string{"--version"}
 		out := &bytes.Buffer{}
+		errOut := &bytes.Buffer{}
 
-		err := Run(ctx, "v0.0.0", args, out)
+		err := Run(ctx, "v0.0.0", args, out, errOut)
 
 		assert.NoError(t, err)
 		assert.Equal(t, "v0.0.0", out.String())
@@ -83,10 +86,11 @@ func TestRun(t *testing.T) {
 		ctx := t.Context()
 		args := []string{"--log-encoder", "invalid"}
 		out := &bytes.Buffer{}
+		errOut := &bytes.Buffer{}
 
-		err := Run(ctx, "v0.0.0", args, out)
+		err := Run(ctx, "v0.0.0", args, out, errOut)
 
 		require.Error(t, err)
-		assert.EqualError(t, err, "error parsing arguments: invalid value for flag --log-encoder: must be one of: json, console")
+		assert.EqualError(t, err, "invalid value for flag --log-encoder: must be one of: json, console")
 	})
 }

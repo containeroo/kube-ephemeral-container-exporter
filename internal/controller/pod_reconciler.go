@@ -32,7 +32,7 @@ import (
 // PodReconciler reconciles Pods and exposes metrics about attached ephemeral containers.
 type PodReconciler struct {
 	KubeClient client.Client
-	Logger     logr.Logger
+	Logger     *logr.Logger
 	Metrics    *metrics.Registry
 }
 

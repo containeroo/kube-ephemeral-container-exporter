@@ -38,6 +38,7 @@ import (
 
 func TestPodReconcilerReconcile(t *testing.T) {
 	t.Parallel()
+	logger := logr.Discard()
 
 	t.Run("pod not found", func(t *testing.T) {
 		t.Parallel()
@@ -50,7 +51,7 @@ func TestPodReconcilerReconcile(t *testing.T) {
 
 		reconciler := &PodReconciler{
 			KubeClient: kubeClient,
-			Logger:     logr.Discard(),
+			Logger:     &logger,
 			Metrics:    metricsReg,
 		}
 
@@ -117,7 +118,7 @@ func TestPodReconcilerReconcile(t *testing.T) {
 
 		reconciler := &PodReconciler{
 			KubeClient: kubeClient,
-			Logger:     logr.Discard(),
+			Logger:     &logger,
 			Metrics:    metricsReg,
 		}
 
@@ -173,7 +174,7 @@ func TestPodReconcilerReconcile(t *testing.T) {
 
 		reconciler := &PodReconciler{
 			KubeClient: kubeClient,
-			Logger:     logr.Discard(),
+			Logger:     &logger,
 			Metrics:    metricsReg,
 		}
 
@@ -233,6 +234,7 @@ func TestNewScheme(t *testing.T) {
 
 func TestPodReconcilerNotFoundIsIgnored(t *testing.T) {
 	t.Parallel()
+	logger := logr.Discard()
 
 	scheme := newScheme(t)
 	kubeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
@@ -242,7 +244,7 @@ func TestPodReconcilerNotFoundIsIgnored(t *testing.T) {
 
 	reconciler := &PodReconciler{
 		KubeClient: kubeClient,
-		Logger:     logr.Discard(),
+		Logger:     &logger,
 		Metrics:    metricsReg,
 	}
 
