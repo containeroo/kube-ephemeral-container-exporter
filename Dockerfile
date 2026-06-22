@@ -2,7 +2,9 @@
 FROM golang:1.26 AS builder
 ARG TARGETOS
 ARG TARGETARCH
-ARG LDFLAGS="-s -w"
+ARG VERSION=dev
+ARG COMMIT=none
+ARG LDFLAGS="-s -w -X main.Version=${VERSION} -X main.Commit=${COMMIT}"
 ENV CGO_ENABLED=0
 
 WORKDIR /workspace
@@ -46,4 +48,3 @@ WORKDIR /work
 COPY --from=builder /workspace/kube-ephemeral-container-exporter .
 USER 65532:65532
 ENTRYPOINT ["/kube-ephemeral-container-exporter"]
-
