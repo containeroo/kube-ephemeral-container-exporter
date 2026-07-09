@@ -142,7 +142,7 @@ func TestParseArgs(t *testing.T) {
 
 		_, err := ParseArgs([]string{"--log-encoder", "xml"}, "")
 		require.Error(t, err)
-		assert.EqualError(t, err, "invalid value for flag --log-encoder: must be one of: json, console")
+		assert.EqualError(t, err, "invalid value for flag --log-encoder: \"xml\" must be one of: json, console")
 	})
 
 	t.Run("invalid stacktrace level", func(t *testing.T) {
@@ -150,7 +150,7 @@ func TestParseArgs(t *testing.T) {
 
 		_, err := ParseArgs([]string{"--log-stacktrace-level", "debug"}, "")
 		require.Error(t, err)
-		assert.EqualError(t, err, "invalid value for flag --log-stacktrace-level: must be one of: info, error, panic")
+		assert.EqualError(t, err, "invalid value for flag --log-stacktrace-level: \"debug\" must be one of: info, error, panic")
 	})
 
 	t.Run("multiple watch namespaces", func(t *testing.T) {
