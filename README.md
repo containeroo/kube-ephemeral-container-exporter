@@ -16,7 +16,7 @@
 
 ## Installation and Usage
 
-- **Helm**: `helm upgrade --install kube-ephemeral-container-exporter ./deploy/kubernetes/chart/kube-ephemeral-container-exporter`
+- **Helm**: install `containeroo/kube-ephemeral-container-exporter` from `https://charts.containeroo.ch`. The chart source is maintained in [containeroo/helm-charts](https://github.com/containeroo/helm-charts/tree/master/charts/kube-ephemeral-container-exporter).
 - **Kustomize/manifests**: apply `deploy/kubernetes/kustomization.yaml` (or the rendered manifests) after setting image/tag/args.
 
 ### Namespaced Mode
