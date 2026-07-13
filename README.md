@@ -23,7 +23,12 @@
 
 By default, `kube-ephemeral-container-exporter` watches all namespaces. To restrict it to specific namespaces, pass the `--watch-namespace` flag. This flag can be repeated or comma-separated to specify multiple namespaces. When set, `kube-ephemeral-container-exporter` will only monitor Pods within those namespaces.
 
-If running in namespaced mode, ensure the associated `Role` and `RoleBinding` are configured accordingly. You can use your existing namespaced RBAC manifests as a starting point for custom definitions.
+For a Helm installation, set `watch.currentNamespace=true` to watch only the
+namespace containing the exporter Pod, or populate `watch.namespaces` to watch
+several namespaces. The chart automatically replaces controller cluster RBAC
+with a Role and RoleBinding in every watched namespace. For manifest-based
+installations, use the namespaced RBAC templates in `deploy/kubernetes/manifests`
+as a starting point.
 
 ## How It Works
 
