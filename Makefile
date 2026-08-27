@@ -29,7 +29,7 @@ YAMLFMT_VERSION ?= v0.21.0
 # renovate: datasource=github-releases depName=onsi/ginkgo
 GINKGO_VERSION ?= v2.32.1
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-KIND_VERSION ?= 0.32.0
+KIND_VERSION ?= 0.33.0
 
 ## Detect platform for Kind binary
 UNAME_S := $(shell uname -s | tr '[:upper:]' '[:lower:]')
