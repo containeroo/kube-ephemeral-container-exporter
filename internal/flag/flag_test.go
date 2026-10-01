@@ -65,7 +65,7 @@ func TestParseArgs(t *testing.T) {
 		assert.Equal(t, "json", opts.LogEncoder)
 		assert.Equal(t, "panic", opts.LogStacktraceLevel)
 		assert.False(t, opts.LogDev)
-		assert.Empty(t, opts.OverriddenValues)
+		assert.Empty(t, opts.Overrides)
 	})
 
 	t.Run("show version", func(t *testing.T) {
@@ -180,9 +180,9 @@ func TestParseArgs(t *testing.T) {
 		assert.False(t, opts.SecureMetrics)
 		assert.False(t, opts.LeaderElection)
 
-		require.NotEmpty(t, opts.OverriddenValues)
-		assert.Contains(t, opts.OverriddenValues, "log-encoder")
-		assert.Contains(t, opts.OverriddenValues, "metrics-secure")
-		assert.Contains(t, opts.OverriddenValues, "leader-elect")
+		require.NotEmpty(t, opts.Overrides)
+		assert.Equal(t, "console", opts.Overrides["log-encoder"].Value)
+		assert.Equal(t, false, opts.Overrides["metrics-secure"].Value)
+		assert.Equal(t, false, opts.Overrides["leader-elect"].Value)
 	})
 }
