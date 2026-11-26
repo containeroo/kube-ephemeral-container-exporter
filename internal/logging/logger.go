@@ -19,7 +19,7 @@ package logging
 import (
 	"io"
 
-	"github.com/containeroo/kube-ephemeral-container-exporter/internal/flag"
+	"github.com/containeroo/kube-ephemeral-container-exporter/internal/cli"
 
 	"github.com/go-logr/logr"
 	uzap "go.uber.org/zap"
@@ -39,7 +39,7 @@ const (
 )
 
 // InitLogging initializes logging based on provided configuration.
-func InitLogging(flags flag.Options, w io.Writer) logr.Logger {
+func InitLogging(flags cli.Flags, w io.Writer) logr.Logger {
 	logger := setupLogger(flags, w)
 
 	log.SetLogger(logger)
@@ -49,7 +49,7 @@ func InitLogging(flags flag.Options, w io.Writer) logr.Logger {
 }
 
 // setupLogger configures and returns a logr.Logger based on given configuration.
-func setupLogger(flags flag.Options, w io.Writer) logr.Logger {
+func setupLogger(flags cli.Flags, w io.Writer) logr.Logger {
 	opts := zap.Options{
 		Development:     flags.LogDev,
 		DestWriter:      w,

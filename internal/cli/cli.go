@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package flag
+package cli
 
 import (
 	"net"
@@ -22,8 +22,8 @@ import (
 	"github.com/containeroo/tinyflags"
 )
 
-// Options holds all configuration options for the application.
-type Options struct {
+// Flags holds all configuration options for the application.
+type Flags struct {
 	WatchNamespaces    []string            // Namespaces to watch
 	MetricsAddr        string              // Address for the metrics server
 	LeaderElection     bool                // Enable leader election
@@ -38,28 +38,26 @@ type Options struct {
 }
 
 // ParseArgs parses CLI flags into Options and handles --help/--version output.
-func ParseArgs(args []string, version string) (Options, error) {
-	opts := Options{}
-
+func ParseArgs(args []string, version string) (flags Flags, err error) {
 	tf := tinyflags.NewFlagSet("kube-ephemeral-container-exporter", tinyflags.ContinueOnError)
 	tf.Version(version)
 	tf.EnvPrefix("EC_EXPORTER_")
 	tf.HideEnvs()
 
 	// Controller
-	tf.StringSliceVar(&opts.WatchNamespaces, "watch-namespace", nil, "Namespaces to watch (can be repeated or comma-separated)").
+	tf.StringSliceVar(&flags.WatchNamespaces, "watch-namespace", nil, "Namespaces to watch (can be repeated or comma-separated)").
 		Placeholder("NAMESPACE").
 		Value()
 
 	// Metrics
-	tf.BoolVar(&opts.EnableMetrics, "metrics-enabled", true, "Enable or disable the metrics endpoint").
+	tf.BoolVar(&flags.EnableMetrics, "metrics-enabled", true, "Enable or disable the metrics endpoint").
 		Strict().
 		HideAllowed().
 		Value()
 	metricsBindAddress := tf.TCPAddr("metrics-bind-address", &net.TCPAddr{IP: nil, Port: 8443}, "Metrics server address").
 		Placeholder("ADDR:PORT").
 		Value()
-	tf.BoolVar(&opts.SecureMetrics, "metrics-secure", true, "Serve metrics over HTTPS").
+	tf.BoolVar(&flags.SecureMetrics, "metrics-secure", true, "Serve metrics over HTTPS").
 		Strict().
 		HideAllowed().
 		Value()
@@ -68,33 +66,33 @@ func ParseArgs(args []string, version string) (Options, error) {
 	healthProbeaddress := tf.TCPAddr("health-probe-bind-address", &net.TCPAddr{IP: nil, Port: 8081}, "Health and readiness probe address").
 		Placeholder("ADDR:PORT").
 		Value()
-	tf.BoolVar(&opts.EnableHTTP2, "enable-http2", false, "Enable HTTP/2 for servers").
+	tf.BoolVar(&flags.EnableHTTP2, "enable-http2", false, "Enable HTTP/2 for servers").
 		Strict().
 		HideAllowed().
 		Value()
-	tf.BoolVar(&opts.LeaderElection, "leader-elect", true, "Enable leader election").
+	tf.BoolVar(&flags.LeaderElection, "leader-elect", true, "Enable leader election").
 		Strict().
 		HideAllowed().
 		Value()
 
 	// Logging
-	tf.StringVar(&opts.LogEncoder, "log-encoder", "json", "Log format (json, console)").
+	tf.StringVar(&flags.LogEncoder, "log-encoder", "json", "Log format (json, console)").
 		Choices("json", "console").
 		HideAllowed().
 		Value()
-	tf.BoolVar(&opts.LogDev, "log-devel", false, "Enable development mode logging").Value()
-	tf.StringVar(&opts.LogStacktraceLevel, "log-stacktrace-level", "panic", "Stacktrace log level").
+	tf.BoolVar(&flags.LogDev, "log-devel", false, "Enable development mode logging").Value()
+	tf.StringVar(&flags.LogStacktraceLevel, "log-stacktrace-level", "panic", "Stacktrace log level").
 		Choices("info", "error", "panic").
 		HideAllowed().
 		Value()
 
 	if err := tf.Parse(args); err != nil {
-		return Options{}, err
+		return Flags{}, err
 	}
 
-	opts.MetricsAddr = (*metricsBindAddress).String()
-	opts.ProbeAddr = (*healthProbeaddress).String()
-	opts.Overrides = tf.Overrides()
+	flags.MetricsAddr = (*metricsBindAddress).String()
+	flags.ProbeAddr = (*healthProbeaddress).String()
+	flags.Overrides = tf.Overrides()
 
-	return opts, nil
+	return flags, nil
 }

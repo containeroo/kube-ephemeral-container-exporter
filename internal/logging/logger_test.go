@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/containeroo/kube-ephemeral-container-exporter/internal/flag"
+	"github.com/containeroo/kube-ephemeral-container-exporter/internal/cli"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
@@ -35,7 +35,7 @@ func TestInitLogging(t *testing.T) {
 	t.Run("Valid Configuration JSON", func(t *testing.T) {
 		t.Parallel()
 
-		opts := flag.Options{
+		opts := cli.Flags{
 			LogEncoder:         "json",
 			LogStacktraceLevel: "info",
 			LogDev:             false,
@@ -49,7 +49,7 @@ func TestInitLogging(t *testing.T) {
 	t.Run("Valid Configuration Console", func(t *testing.T) {
 		t.Parallel()
 
-		opts := flag.Options{
+		opts := cli.Flags{
 			LogEncoder:         "console",
 			LogStacktraceLevel: "error",
 			LogDev:             true,
@@ -66,7 +66,7 @@ func TestSetupLogger(t *testing.T) {
 
 	t.Run("Setup Logger", func(t *testing.T) {
 		t.Parallel()
-		opts := flag.Options{
+		opts := cli.Flags{
 			LogDev:             true,
 			LogEncoder:         "json",
 			LogStacktraceLevel: "error",

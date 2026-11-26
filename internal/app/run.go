@@ -24,8 +24,8 @@ import (
 
 	"github.com/containeroo/tinyflags"
 
+	"github.com/containeroo/kube-ephemeral-container-exporter/internal/cli"
 	"github.com/containeroo/kube-ephemeral-container-exporter/internal/controller"
-	"github.com/containeroo/kube-ephemeral-container-exporter/internal/flag"
 	"github.com/containeroo/kube-ephemeral-container-exporter/internal/logging"
 	internalmetrics "github.com/containeroo/kube-ephemeral-container-exporter/internal/metrics"
 	"github.com/containeroo/kube-ephemeral-container-exporter/internal/utils"
@@ -49,7 +49,7 @@ func init() {
 
 // Run is the main function of the application.
 func Run(ctx context.Context, version string, args []string, stdOut, stdErr io.Writer) error {
-	flags, err := flag.ParseArgs(args, version)
+	flags, err := cli.ParseArgs(args, version)
 	if err != nil {
 		if tinyflags.IsHelpRequested(err) || tinyflags.IsVersionRequested(err) {
 			_, _ = fmt.Fprint(stdOut, err)
